@@ -13,14 +13,14 @@ const fs = require('fs');
 const uploadMiddleware = multer({ dest: 'uploads/' });
 
 const salt = bcrypt.genSaltSync(10);
-const secret = 'adfojror45okmkfn0r';
+const secret = ''; #keep your secret
 
 app.use(cors({ credentials: true, origin: 'http://localhost:3000' }));
 app.use(express.json());
 app.use(cookieParser());
 app.use('/uploads', express.static(__dirname + '/uploads'));
 
-mongoose.connect('mongodb+srv://pp16241:ZFvihc1PyBSmEuny@cluster0.eb5qtvr.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0');
+mongoose.connect(''); # add your mongo db connection
 
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
