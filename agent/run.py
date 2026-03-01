@@ -3,6 +3,7 @@ Phase 4 AI Agent – Runs in GitHub Actions (or Codespaces).
 Creates a DRAFT post about AI agents & GitHub Codespaces. You review and publish from /admin.
 """
 import os
+import re
 import uuid
 import random
 import requests
@@ -46,21 +47,56 @@ FALLBACK_COVERS = {
 }
 
 
-def find_ai_agent_repo() -> tuple[str, str]:
+def get_already_used_repos() -> set[str]:
+    """
+    Scan DynamoDB BlogPosts for existing posts and extract repo names from the
+    Repository footer (e.g. **Repository:** [owner/repo](url)). Returns a set of
+    lowercase 'owner/repo' strings so we can avoid writing about the same repo again.
+    """
+    if not all([BLOG_POSTS_TABLE, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY]):
+        return set()
+    used = set()
+    try:
+        dynamodb = boto3.resource(
+            "dynamodb",
+            region_name=AWS_REGION,
+            aws_access_key_id=AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        )
+        table = dynamodb.Table(BLOG_POSTS_TABLE)
+        response = table.scan(ProjectionExpression="Content")
+        items = response.get("Items", [])
+        while "LastEvaluatedKey" in response:
+            response = table.scan(
+                ProjectionExpression="Content",
+                ExclusiveStartKey=response["LastEvaluatedKey"],
+            )
+            items.extend(response.get("Items", []))
+        for item in items:
+            content = item.get("Content") or ""
+            # Parse **Repository:** [name](https://github.com/owner/repo)
+            m = re.search(r"https://github\.com/([^)\s]+)", content)
+            if m:
+                used.add(m.group(1).lower())
+    except Exception as e:
+        print(f"Could not load existing repos from DB: {e}")
+    return used
+
+
+def find_ai_agent_repo(already_used: set[str] | None = None) -> tuple[str, str]:
     """
     Use GitHub API to find a legitimate AI-agent or Codespaces repo.
-    Preference order:
-    1) Repos with >= 1000 stars.
-    2) If none found, repos with 100–999 stars (still AI / agent / AI-related).
+    Builds a larger pool from multiple queries, skips repos we've already used
+    (from DynamoDB), then picks one and fetches its README.
 
     Returns (repo_full_name, readme_content).
     """
+    already_used = already_used or set()
     tier1_queries = [
         "ai agent stars:>1000",
         "llm agent stars:>1000",
         "codespaces stars:>1000",
     ]
-    # Second tier: slightly smaller but still legitimate AI / agent repos
     tier2_queries = [
         "ai agent stars:100..999",
         "llm agent stars:100..999",
@@ -70,24 +106,35 @@ def find_ai_agent_repo() -> tuple[str, str]:
     if GITHUB_TOKEN:
         headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
 
+    # Build a larger pool from all queries (more results per query)
+    pool: list[str] = []
+    seen = set()
     for q in tier1_queries + tier2_queries:
         try:
             r = requests.get(
                 "https://api.github.com/search/repositories",
-                params={"q": q, "sort": "stars", "per_page": 5},
+                params={"q": q, "sort": "stars", "per_page": 20},
                 headers=headers,
                 timeout=15,
             )
             r.raise_for_status()
             data = r.json()
-            items = data.get("items", [])
-            if not items:
-                continue
-            # Pick a random repo from the results so repeated runs are less likely
-            # to write about exactly the same project every time.
-            repo = random.choice(items)
-            full_name = repo["full_name"]
-            # Fetch README
+            for repo in data.get("items", []):
+                full_name = repo.get("full_name")
+                if not full_name or full_name in seen:
+                    continue
+                seen.add(full_name)
+                if full_name.lower() in already_used:
+                    continue
+                pool.append(full_name)
+        except Exception as e:
+            print(f"GitHub search '{q}' failed: {e}")
+            continue
+
+    # Shuffle and try each candidate until we get a valid README
+    random.shuffle(pool)
+    for full_name in pool:
+        try:
             rr = requests.get(
                 f"https://api.github.com/repos/{full_name}/readme",
                 headers=headers,
@@ -102,10 +149,10 @@ def find_ai_agent_repo() -> tuple[str, str]:
             content = requests.get(download_url, timeout=15).text
             return (full_name, content[:10000])
         except Exception as e:
-            print(f"GitHub search '{q}' failed: {e}")
+            print(f"README fetch for {full_name} failed: {e}")
             continue
 
-    # Hard fallback: a well-known AI agent repo
+    # Hard fallback if pool was empty or all README fetches failed
     fallback_repo = "langchain-ai/langgraph"
     try:
         rr = requests.get(
@@ -210,8 +257,13 @@ def main():
     if not all([AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY]):
         raise ValueError("AWS credentials not set. Add as GitHub Secrets.")
 
-    # 1. Find a legitimate AI-agent or Codespaces repo (1k+ stars) and fetch README
-    repo_name, source = find_ai_agent_repo()
+    # Repos we've already written about (drafts + published) so we pick something new
+    already_used = get_already_used_repos()
+    if already_used:
+        print(f"Skipping {len(already_used)} already-used repo(s): {sorted(already_used)[:5]}{'...' if len(already_used) > 5 else ''}")
+
+    # 1. Find a legitimate AI-agent or Codespaces repo (not in already_used), fetch README
+    repo_name, source = find_ai_agent_repo(already_used=already_used)
     print(f"Using repo: {repo_name}")
 
     # 2. CrewAI with Groq – focused on AI agents & Codespaces
