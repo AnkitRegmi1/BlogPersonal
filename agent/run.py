@@ -121,21 +121,26 @@ def find_ai_agent_repo() -> tuple[str, str]:
     return ("langchain-ai/langgraph", "[README content unavailable; write from general AI agent knowledge.]")
 
 
-def get_cover_image_url(title: str) -> str:
+def get_cover_image_url(title: str, repo_name: str | None = None) -> str:
     """
     Return a topic-appropriate cover image URL.
-    If UNSPLASH_ACCESS_KEY is set, search Unsplash by topic; otherwise use fallback list by keyword.
+    Uses repo_name (e.g. langchain-ai/langgraph → LangGraph) so the image matches the post topic,
+    not generic "technology programming". If UNSPLASH_ACCESS_KEY is set, search Unsplash; else use fallbacks.
     """
-    title_lower = (title or "").lower()
+    # Prefer repo name for topic (e.g. "langchain-ai/langgraph" → "LangGraph", "owner/langflow" → "LangFlow")
+    topic_lower = (title or "").lower()
+    if repo_name:
+        project = repo_name.split("/")[-1]  # e.g. langgraph, langflow
+        topic_lower = f"{topic_lower} {project}".strip()
 
     if UNSPLASH_ACCESS_KEY:
-        # Build search query from title
-        if any(w in title_lower for w in ["codespace", "codespaces", "github"]):
-            query = "GitHub Codespaces coding"
-        elif any(w in title_lower for w in ["ai", "agent", "llm", "langchain", "openai"]):
-            query = "AI artificial intelligence robot"
+        # Build search query from actual project/topic so we get AI/agent images, not code-debug
+        if any(w in topic_lower for w in ["codespace", "codespaces", "github"]):
+            query = "GitHub Codespaces cloud development"
+        elif any(w in topic_lower for w in ["ai", "agent", "llm", "langchain", "langgraph", "langflow", "openai"]):
+            query = "artificial intelligence AI robot neural"
         else:
-            query = "technology programming"
+            query = "artificial intelligence technology"
         try:
             r = requests.get(
                 "https://api.unsplash.com/search/photos",
@@ -151,12 +156,12 @@ def get_cover_image_url(title: str) -> str:
         except Exception as e:
             print(f"Unsplash search failed: {e}")
 
-    # Fallback: pick by keyword from curated list
-    if any(w in title_lower for w in ["ai", "agent", "llm", "langchain", "openai"]):
+    # Fallback: use repo name so AI-agent repos get AI images, not generic coding/debug
+    if any(w in topic_lower for w in ["ai", "agent", "llm", "langchain", "langgraph", "langflow", "openai"]):
         return random.choice(FALLBACK_COVERS["ai"])
-    if any(w in title_lower for w in ["codespace", "codespaces"]):
+    if any(w in topic_lower for w in ["codespace", "codespaces"]):
         return random.choice(FALLBACK_COVERS["codespaces"])
-    if "github" in title_lower:
+    if "github" in topic_lower:
         return random.choice(FALLBACK_COVERS["github"])
     return random.choice(FALLBACK_COVERS["default"])
 
@@ -273,14 +278,17 @@ Output: a structured list with these four sections.""",
         agent=researcher,
     )
 
+    repo_url = f"https://github.com/{repo_name}"
+
     write_task = Task(
-        description="""Using the research, write a single Markdown blog post (4–6 short sections) that:
+        description=f"""Using the research, write a single Markdown blog post (4–6 short sections) that:
 
 - **Focus**: AI agents and/or GitHub Codespaces. Teach the reader how to run this repo and why it matters.
 - **Structure**: Start with a short intro, then "What is [repo]?", "How to run it (step-by-step)", "Benefits", and "How to stay up to date" (e.g. watch the repo, filter by 1k+ stars for AI agents).
 - **Tone**: Beginner-friendly, practical. Use **bold** and `code` for commands and key terms.
 - **Do not** use long code blocks; use inline `code` or one-line snippets. Keep steps numbered and clear.
-- Mention the repo name and that it has substantial stars/community so readers know it's legitimate.""",
+- **Repository link**: Use this exact URL for the repo: {repo_url}. Do not invent or change the URL. You may mention the repo as [{repo_name}]({repo_url}) in the post.
+- Mention the repo name ({repo_name}) and that it has substantial stars/community so readers know it's legitimate.""",
         expected_output="A complete Markdown blog post with ## headings, step-by-step instructions, and benefits. No long code fences.",
         agent=writer,
         context=[research_task],
@@ -296,6 +304,12 @@ Output: a structured list with these four sections.""",
     result = crew.kickoff()
     content = str(result).strip()
 
+    # Ensure the correct repo URL is always in the post (LLM might omit or wrong it)
+    repo_url = f"https://github.com/{repo_name}"
+    repo_footer = f"\n\n---\n**Repository:** [{repo_name}]({repo_url})"
+    if repo_footer.strip() not in content and repo_url not in content:
+        content = content + repo_footer
+
     # 3. Extract title and summary
     lines = content.split("\n")
     title = "AI Agents & Codespaces: Getting Started"
@@ -306,8 +320,8 @@ Output: a structured list with these four sections.""",
     summary = content[:150].replace("\n", " ").strip() + "..." if len(content) > 150 else content[:100]
     newsletter_hook = f"New post: {title}. Check it out!"
 
-    # 4. Topic-appropriate cover image (Unsplash search or keyword fallback)
-    cover_image_url = get_cover_image_url(title)
+    # 4. Topic-appropriate cover image (use repo name so e.g. LangGraph/LangFlow → AI image, not code-debug)
+    cover_image_url = get_cover_image_url(title, repo_name=repo_name)
     if not cover_image_url:
         cover_image_url = random.choice(FALLBACK_COVERS["default"])
     cover_url = upload_cover_to_s3(cover_image_url)
