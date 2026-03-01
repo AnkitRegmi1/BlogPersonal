@@ -1,0 +1,36 @@
+name: AI Blog Agent
+
+on:
+  schedule:
+    # Run daily at 8:00 AM UTC (adjust cron as needed)
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+    # Allow manual run from GitHub UI
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd agent
+          pip install -r requirements.txt
+
+      - name: Run agent
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          BLOG_POSTS_TABLE: ${{ secrets.BLOG_POSTS_TABLE }}
+        run: |
+          cd agent
+          python run.py

@@ -1,0 +1,35 @@
+# Secrets and env – never commit
+.env
+.env.*
+!.env.example
+api/.env
+agent/.env
+*.pem
+*.key
+
+# Dependencies
+node_modules/
+api/node_modules/
+client/node_modules/
+__pycache__/
+*.py[cod]
+agent/.venv/
+agent/venv/
+.venv/
+venv/
+
+# Build / output
+client/build/
+dist/
+*.log
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
