@@ -83,7 +83,9 @@ def find_ai_agent_repo() -> tuple[str, str]:
             items = data.get("items", [])
             if not items:
                 continue
-            repo = items[0]
+            # Pick a random repo from the results so repeated runs are less likely
+            # to write about exactly the same project every time.
+            repo = random.choice(items)
             full_name = repo["full_name"]
             # Fetch README
             rr = requests.get(
@@ -121,48 +123,21 @@ def find_ai_agent_repo() -> tuple[str, str]:
     return ("langchain-ai/langgraph", "[README content unavailable; write from general AI agent knowledge.]")
 
 
-def get_cover_image_url(title: str, repo_name: str | None = None) -> str:
+def get_cover_image_url(repo_name: str | None = None) -> str:
     """
-    Return a topic-appropriate cover image URL.
-    Uses repo_name (e.g. langchain-ai/langgraph → LangGraph) so the image matches the post topic,
-    not generic "technology programming". If UNSPLASH_ACCESS_KEY is set, search Unsplash; else use fallbacks.
+    Return a repo-related cover image URL.
+
+    Uses GitHub's Open Graph image for the repo. If the repo has no custom
+    social preview/logo, GitHub still serves an auto-generated card (repo name,
+    description). If that URL fails when we try to use it, the caller falls back
+    to a default image.
     """
-    # Prefer repo name for topic (e.g. "langchain-ai/langgraph" → "LangGraph", "owner/langflow" → "LangFlow")
-    topic_lower = (title or "").lower()
     if repo_name:
-        project = repo_name.split("/")[-1]  # e.g. langgraph, langflow
-        topic_lower = f"{topic_lower} {project}".strip()
+        # GitHub automatically serves a social preview image for each repo.
+        # This keeps the cover tightly aligned with the actual project.
+        return f"https://opengraph.githubassets.com/1/{repo_name}"
 
-    if UNSPLASH_ACCESS_KEY:
-        # Build search query from actual project/topic so we get AI/agent images, not code-debug
-        if any(w in topic_lower for w in ["codespace", "codespaces", "github"]):
-            query = "GitHub Codespaces cloud development"
-        elif any(w in topic_lower for w in ["ai", "agent", "llm", "langchain", "langgraph", "langflow", "openai"]):
-            query = "artificial intelligence AI robot neural"
-        else:
-            query = "artificial intelligence technology"
-        try:
-            r = requests.get(
-                "https://api.unsplash.com/search/photos",
-                params={"query": query, "per_page": 5, "orientation": "landscape"},
-                headers={"Authorization": f"Client-ID {UNSPLASH_ACCESS_KEY}"},
-                timeout=10,
-            )
-            r.raise_for_status()
-            data = r.json()
-            results = data.get("results", [])
-            if results:
-                return results[0].get("urls", {}).get("regular") or results[0].get("urls", {}).get("small") or ""
-        except Exception as e:
-            print(f"Unsplash search failed: {e}")
-
-    # Fallback: use repo name so AI-agent repos get AI images, not generic coding/debug
-    if any(w in topic_lower for w in ["ai", "agent", "llm", "langchain", "langgraph", "langflow", "openai"]):
-        return random.choice(FALLBACK_COVERS["ai"])
-    if any(w in topic_lower for w in ["codespace", "codespaces"]):
-        return random.choice(FALLBACK_COVERS["codespaces"])
-    if "github" in topic_lower:
-        return random.choice(FALLBACK_COVERS["github"])
+    # Fallback if for some reason we don't know the repo name.
     return random.choice(FALLBACK_COVERS["default"])
 
 
@@ -312,21 +287,31 @@ Output: a structured list with these four sections.""",
 
     # 3. Extract title and summary
     lines = content.split("\n")
-    title = "AI Agents & Codespaces: Getting Started"
+    project = repo_name.split("/")[-1] if "/" in repo_name else repo_name
+    # Default title is project-specific so different repos don't all share the same heading
+    title = f"Getting Started with {project}"
     for line in lines:
         if line.startswith("# "):
-            title = line.lstrip("# ").strip()
+            heading = line.lstrip("# ").strip()
+            # Only use the model's heading if it actually mentions the project;
+            # otherwise keep our project-specific default.
+            if project.lower() in heading.lower():
+                title = heading
             break
     summary = content[:150].replace("\n", " ").strip() + "..." if len(content) > 150 else content[:100]
     newsletter_hook = f"New post: {title}. Check it out!"
 
-    # 4. Topic-appropriate cover image (use repo name so e.g. LangGraph/LangFlow → AI image, not code-debug)
-    cover_image_url = get_cover_image_url(title, repo_name=repo_name)
+    # 4. Repo-specific cover image (GitHub Open Graph card for the repo)
+    cover_image_url = get_cover_image_url(repo_name=repo_name)
     if not cover_image_url:
         cover_image_url = random.choice(FALLBACK_COVERS["default"])
     cover_url = upload_cover_to_s3(cover_image_url)
     if not cover_url:
-        cover_url = cover_image_url
+        # Repo may have no social preview or URL failed; use a known-good fallback image
+        fallback_url = random.choice(FALLBACK_COVERS["default"])
+        cover_url = upload_cover_to_s3(fallback_url)
+        if not cover_url:
+            cover_url = fallback_url
 
     # 5. Save draft to DynamoDB
     post_id = put_draft_to_dynamodb(
