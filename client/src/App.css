@@ -41,14 +41,28 @@ main {
 }
 
 .site-header .logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-weight: 700;
   font-size: 1.25rem;
   text-decoration: none;
+  color: var(--foreground);
+  transition: transform 0.3s ease;
+}
+
+.site-header .logo .logo-img {
+  width: 28px;
+  height: 28px;
+  display: block;
+  flex-shrink: 0;
+}
+
+.site-header .logo span {
   background: linear-gradient(to right, var(--foreground), var(--primary));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  transition: transform 0.3s ease;
 }
 
 .site-header .logo:hover {

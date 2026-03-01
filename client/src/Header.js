@@ -8,7 +8,8 @@ export default function Header() {
     <header className="site-header">
       <div className="header-inner">
         <Link to="/" className="logo" onClick={() => setMobileMenuOpen(false)}>
-          TecBlog AI
+          <img src={`${process.env.PUBLIC_URL || ''}/logo-t.svg`} alt="" className="logo-img" />
+          <span>TecBlog AI</span>
         </Link>
 
         <nav className="desktop-nav">
