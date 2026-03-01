@@ -10,7 +10,6 @@ export default function Post({ post, source = "api", variant = "card" }) {
   const title = isApi ? post.Title : post.title;
   const summary = isApi ? post.Summary : post.summary;
   const createdAt = isApi ? post.CreatedAt : post.createdAt;
-  const author = isApi ? null : post.author;
   const cleanSummary = stripMarkdown(summary || "", 160);
 
   const content = (
