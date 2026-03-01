@@ -340,13 +340,18 @@ Output: a structured list with these four sections.""",
     # 3. Extract title and summary
     lines = content.split("\n")
     project = repo_name.split("/")[-1] if "/" in repo_name else repo_name
-    # Default title is project-specific so different repos don't all share the same heading
-    title = f"Getting Started with {project}"
+    # Vary the default title so posts don't all start with "Getting Started"
+    title_templates = [
+        "Getting Started with {project}",
+        "How to Run {project}: A Quick Guide",
+        "{project}: What It Does and How to Use It",
+        "Why {project} Matters for AI Agents",
+        "Building with {project}: Step-by-Step",
+    ]
+    title = random.choice(title_templates).format(project=project)
     for line in lines:
         if line.startswith("# "):
             heading = line.lstrip("# ").strip()
-            # Only use the model's heading if it actually mentions the project;
-            # otherwise keep our project-specific default.
             if project.lower() in heading.lower():
                 title = heading
             break

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Post from "../Post";
-
-const API_BASE = "http://localhost:4000";
+import { API_BASE } from "../config";
 
 export default function IndexPage() {
   const [posts, setPosts] = useState([]);
@@ -27,11 +26,13 @@ export default function IndexPage() {
       <section className="section">
         <h2 className="section-title">Latest posts</h2>
         {posts.length > 0 ? (
-          <div className="posts-grid">
+          <ul className="posts-list">
             {posts.map((post) => (
-              <Post key={post.PostId || post._id} post={post} source="api" />
+              <li key={post.PostId || post._id}>
+                <Post post={post} source="api" />
+              </li>
             ))}
-          </div>
+          </ul>
         ) : (
           <div className="empty-state">
             <h2>No posts yet</h2>
@@ -60,7 +61,7 @@ function Newsletter() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      const data = await res.json();
+      await res.json();
       if (res.ok) {
         setEmail("");
         setStatus("success");

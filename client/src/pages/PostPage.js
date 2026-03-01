@@ -2,8 +2,7 @@ import { formatISO9075 } from "date-fns";
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
-
-const API_BASE = "http://localhost:4000";
+import { API_BASE } from "../config";
 
 export default function PostPage() {
   const [postInfo, setPostInfo] = useState(null);
@@ -45,7 +44,6 @@ export default function PostPage() {
   const title = postInfo.Title;
   const createdAt = postInfo.CreatedAt;
   const content = postInfo.Content;
-  const cover = postInfo.CoverImageUrl;
 
   return (
     <div className="post-page">
@@ -53,12 +51,6 @@ export default function PostPage() {
       <time className="post-meta">
         {createdAt ? formatISO9075(new Date(createdAt)) : ""}
       </time>
-
-      {cover && (
-        <div className="image">
-          <img src={cover} alt="" />
-        </div>
-      )}
 
       <div className="content">
         {content ? <ReactMarkdown>{content}</ReactMarkdown> : null}
