@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import CoverImageField from "../components/CoverImageField";
-
-const API_BASE = "http://localhost:4000";
+import { API_BASE } from "../config";
 
 export default function EditPost() {
   const { id } = useParams();

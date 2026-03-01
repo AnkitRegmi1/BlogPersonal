@@ -1,5 +1,5 @@
 const { ScanCommand } = require('@aws-sdk/lib-dynamodb');
-const { GetCommand, PutCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
+const { GetCommand, PutCommand, UpdateCommand, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
 const { docClient } = require('./aws');
 
 const TABLE = process.env.BLOG_POSTS_TABLE || 'BlogPosts';
@@ -19,6 +19,39 @@ async function getPublishedPosts() {
   const items = res.Items || [];
   items.sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
   return items;
+}
+
+/**
+ * Get all posts (drafts + published) for admin list. Sorted by CreatedAt desc.
+ * Uses pagination so every item is returned (DynamoDB Scan returns max 1MB per call).
+ */
+async function getAllPosts() {
+  const items = [];
+  let lastKey;
+  do {
+    const params = {
+      TableName: TABLE,
+    };
+    if (lastKey) params.ExclusiveStartKey = lastKey;
+    const cmd = new ScanCommand(params);
+    const res = await docClient.send(cmd);
+    items.push(...(res.Items || []));
+    lastKey = res.LastEvaluatedKey;
+  } while (lastKey);
+  items.sort((a, b) => (b.CreatedAt || '').localeCompare(a.CreatedAt || ''));
+  return items;
+}
+
+/**
+ * Delete a post by PostId (draft or published). Admin only.
+ */
+async function deletePost(postId) {
+  const cmd = new DeleteCommand({
+    TableName: TABLE,
+    Key: { PostId: postId },
+  });
+  await docClient.send(cmd);
+  return { deleted: postId };
 }
 
 /**
@@ -119,8 +152,10 @@ async function publishPost(postId) {
 module.exports = {
   getPublishedPosts,
   getDrafts,
+  getAllPosts,
   getPostById,
   putPost,
   updateDraft,
   publishPost,
+  deletePost,
 };

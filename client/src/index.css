@@ -1,19 +1,24 @@
-/* Design system: Dark minimal modern - from Blog Website Design */
+/* Design system: Vercel Aurora – dark, glass, gradient accents */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --background: #0F0F0F;
-  --foreground: #FFFFFF;
-  --card: #1A1A1A;
-  --primary: #3B82F6;
-  --primary-foreground: #FFFFFF;
-  --secondary: #1A1A1A;
-  --muted: #27272A;
+  /* Aurora palette */
+  --background: #000000;
+  --card: rgba(255, 255, 255, 0.03);
+  --card-border: rgba(255, 255, 255, 0.1);
+  --glow-blue: #0070F3;
+  --glow-purple: #7928CA;
+  --glow-pink: #FF0080;
+  --foreground: #EDEDED;
   --muted-foreground: #A1A1AA;
-  --border: #27272A;
+  --primary: #0070F3;
+  --primary-foreground: #FFFFFF;
+  --secondary: #111111;
+  --muted: #27272A;
+  --border: rgba(255, 255, 255, 0.1);
   --input: #27272A;
-  --input-background: #1A1A1A;
-  --ring: #3B82F6;
+  --input-background: #111111;
+  --ring: #0070F3;
   --destructive: #EF4444;
   --radius: 0.5rem;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
@@ -36,6 +41,28 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.6;
+  position: relative;
+}
+
+/* Decorative blurred gradient blob (atmospheric depth) */
+body::before {
+  content: '';
+  position: fixed;
+  top: -20%;
+  left: 50%;
+  width: 120%;
+  max-width: 800px;
+  height: 60vh;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(121, 40, 202, 0.2) 0%,
+    rgba(0, 112, 243, 0.2) 50%,
+    transparent 70%
+  );
+  filter: blur(120px);
+  pointer-events: none;
+  z-index: 0;
+  transform: translateX(-50%);
 }
 
 a {

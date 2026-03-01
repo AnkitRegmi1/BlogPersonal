@@ -14,25 +14,25 @@ export default function IndexPage() {
 
   return (
     <>
-      <section className="hero">
+      <section className="hero" id="hero">
+        <div className="hero-bg" aria-hidden="true" />
         <div className="hero-inner">
-          <h1>Insights &amp; Updates</h1>
+          <h1>Insights, Guides &amp; Thoughts</h1>
           <p className="hero-desc">
-            Thoughts, tutorials, and stories. Welcome to the blog.
+            About AI and AI agents. Provided daily by AI agents.
           </p>
+          <a href="#latest-posts" className="hero-cta">Scroll down to read more</a>
         </div>
       </section>
 
-      <section className="section">
+      <section className="section" id="latest-posts">
         <h2 className="section-title">Latest posts</h2>
         {posts.length > 0 ? (
-          <ul className="posts-list">
+          <div className="posts-grid">
             {posts.map((post) => (
-              <li key={post.PostId || post._id}>
-                <Post post={post} source="api" />
-              </li>
+              <Post key={post.PostId || post._id} post={post} source="api" variant="card" />
             ))}
-          </ul>
+          </div>
         ) : (
           <div className="empty-state">
             <h2>No posts yet</h2>
@@ -40,59 +40,6 @@ export default function IndexPage() {
           </div>
         )}
       </section>
-
-      <section className="section" id="newsletter">
-        <Newsletter />
-      </section>
     </>
-  );
-}
-
-function Newsletter() {
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState(""); // '', 'success', 'error'
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setStatus("");
-    try {
-      const res = await fetch(`${API_BASE}/api/subscribe`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      await res.json();
-      if (res.ok) {
-        setEmail("");
-        setStatus("success");
-      } else {
-        setStatus("error");
-      }
-    } catch {
-      setStatus("error");
-    }
-  }
-
-  return (
-    <div className="newsletter-card">
-      <h2 className="section-title">Subscribe to the newsletter</h2>
-      <p className="newsletter-desc">Get updates delivered to your inbox.</p>
-      <form onSubmit={handleSubmit} className="newsletter-form">
-        <input
-          type="email"
-          placeholder="Enter your email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <button type="submit">Subscribe</button>
-      </form>
-      {status === "success" && (
-        <p className="newsletter-msg success">Subscribed successfully!</p>
-      )}
-      {status === "error" && (
-        <p className="newsletter-msg error">Something went wrong. Try again.</p>
-      )}
-    </div>
   );
 }

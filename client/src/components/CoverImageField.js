@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
-
-const API_BASE = "http://localhost:4000";
+import { API_BASE } from "../config";
 
 export default function CoverImageField({ value, onChange, getAuthHeaders }) {
   const fileInputRef = useRef(null);

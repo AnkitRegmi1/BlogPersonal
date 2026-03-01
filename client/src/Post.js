@@ -1,7 +1,8 @@
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
+import { stripMarkdown } from "./utils/stripMarkdown";
 
-export default function Post({ post, source = "api" }) {
+export default function Post({ post, source = "api", variant = "card" }) {
   if (!post) return null;
 
   const isApi = source === "api";
@@ -10,17 +11,24 @@ export default function Post({ post, source = "api" }) {
   const summary = isApi ? post.Summary : post.summary;
   const createdAt = isApi ? post.CreatedAt : post.createdAt;
   const author = isApi ? null : post.author;
+  const cleanSummary = stripMarkdown(summary || "", 160);
+
+  const content = (
+    <div className="texts">
+      <div className="meta-row">
+        <time>{createdAt ? format(new Date(createdAt), "MMM d, yyyy") : ""}</time>
+      </div>
+      <h2>{title}</h2>
+      <p className="summary">{cleanSummary}</p>
+    </div>
+  );
 
   return (
-    <Link to={`/post/${id}`} className="post post-list-item">
-      <div className="texts">
-        <h2>{title}</h2>
-        <p className="info">
-          <span className="author">{author?.username || "Blog"}</span>
-          <time>{createdAt ? format(new Date(createdAt), "MMM d, yyyy") : ""}</time>
-        </p>
-        <p className="summary">{summary}</p>
-      </div>
+    <Link
+      to={`/post/${id}`}
+      className={`post ${variant === "card" ? "post-card" : "post-list-item"}`}
+    >
+      {content}
     </Link>
   );
 }

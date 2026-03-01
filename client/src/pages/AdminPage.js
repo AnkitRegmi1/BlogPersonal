@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import CoverImageField from "../components/CoverImageField";
-
-const API_BASE = "http://localhost:4000";
+import { API_BASE } from "../config";
 
 export default function AdminPage() {
   const navigate = useNavigate();
   const [token, setToken] = useState(() => sessionStorage.getItem("adminToken") || "");
   const [tokenValidated, setTokenValidated] = useState(false);
   const [drafts, setDrafts] = useState([]);
+  const [allPosts, setAllPosts] = useState([]);
+  const [showAllPostsSection, setShowAllPostsSection] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingAll, setLoadingAll] = useState(false);
   const [error, setError] = useState("");
   const [publishing, setPublishing] = useState(null);
+  const [deleting, setDeleting] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
@@ -52,6 +55,37 @@ export default function AdminPage() {
       .finally(() => setLoading(false));
   }
 
+  function loadAllPosts() {
+    if (!token.trim()) {
+      setError("Enter your admin token first.");
+      return;
+    }
+    setError("");
+    setShowAllPostsSection(true);
+    setLoadingAll(true);
+    fetch(`${API_BASE}/api/drafts?all=1`, { headers: getAuthHeaders() })
+      .then((res) => {
+        if (res.status === 401) {
+          setError("Invalid token.");
+          setTokenValidated(false);
+          setAllPosts([]);
+          return [];
+        }
+        setTokenValidated(true);
+        return res.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setAllPosts(data);
+        } else {
+          setError(data?.error || "Failed to load posts.");
+          setAllPosts([]);
+        }
+      })
+      .catch(() => setError("Failed to load posts."))
+      .finally(() => setLoadingAll(false));
+  }
+
   function publishPost(postId) {
     setPublishing(postId);
     fetch(`${API_BASE}/api/publish/${postId}`, {
@@ -59,11 +93,30 @@ export default function AdminPage() {
       headers: getAuthHeaders(),
     })
       .then((res) => {
-        if (res.ok) return loadDrafts();
-        throw new Error("Publish failed");
+        if (res.ok) {
+          loadDrafts();
+          loadAllPosts();
+        } else throw new Error("Publish failed");
       })
       .catch(() => setError("Failed to publish."))
       .finally(() => setPublishing(null));
+  }
+
+  function deletePost(postId) {
+    if (!window.confirm("Delete this post? This cannot be undone.")) return;
+    setDeleting(postId);
+    fetch(`${API_BASE}/api/posts/${postId}`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    })
+      .then((res) => {
+        if (res.ok) {
+          loadDrafts();
+          loadAllPosts();
+        } else return res.json().then((d) => { throw new Error(d.error || "Delete failed"); });
+      })
+      .catch((e) => setError(e.message || "Failed to delete."))
+      .finally(() => setDeleting(null));
   }
 
   async function handleCreatePost(ev) {
@@ -102,7 +155,7 @@ export default function AdminPage() {
   return (
     <div className="section admin-page">
       <h1>Admin</h1>
-      <p className="admin-desc">Enter your admin token to create posts, edit drafts, and publish.</p>
+      <p className="admin-desc">Enter your admin token first. Then you can load drafts, view all posts, or create a new post.</p>
 
       <div className="admin-token-row">
         <input
@@ -112,9 +165,24 @@ export default function AdminPage() {
           onChange={(e) => setToken(e.target.value)}
           className="admin-token-input"
         />
-        <button type="button" onClick={loadDrafts} disabled={loading}>
-          {loading ? "Loading…" : "Load drafts"}
-        </button>
+        {token.trim() ? (
+          <>
+            <button type="button" onClick={loadDrafts} disabled={loading}>
+              {loading ? "Loading…" : "Load drafts"}
+            </button>
+            <button
+              type="button"
+              onClick={loadAllPosts}
+              disabled={loadingAll}
+              className="btn-outline"
+              style={{ marginLeft: "0.5rem" }}
+            >
+              {loadingAll ? "Loading…" : "All posts"}
+            </button>
+          </>
+        ) : (
+          <span className="admin-hint">Enter token to enable Load drafts and All posts</span>
+        )}
       </div>
 
       {tokenValidated && (
@@ -188,6 +256,57 @@ export default function AdminPage() {
         </div>
       ) : (
         !loading && tokenValidated && <p className="admin-empty">No drafts.</p>
+      )}
+
+      {showAllPostsSection && (
+        <div className="drafts-list" style={{ marginTop: "2rem" }}>
+          <h2>All posts</h2>
+          <p className="admin-desc">Drafts and published. Delete removes the post permanently.</p>
+          {loadingAll ? (
+            <p className="admin-empty">Loading…</p>
+          ) : allPosts.length > 0 ? (
+            allPosts.map((p) => (
+              <div key={p.PostId} className="draft-card">
+                <h3>{p.Title}</h3>
+                <p className="draft-summary">{p.Summary}</p>
+                <div className="draft-meta">
+                  <span>Created: {p.CreatedAt ? new Date(p.CreatedAt).toLocaleDateString() : ""}</span>
+                  <span style={{ marginLeft: "1rem" }}>
+                    <strong>Status:</strong> {p.Status === "draft" ? "Draft" : "Published"}
+                  </span>
+                </div>
+                <div className="draft-actions">
+                  {p.Status === "draft" && (
+                    <>
+                      <Link to={`/edit/${p.PostId}`} className="btn-outline">Edit</Link>
+                      <button
+                        type="button"
+                        className="btn-publish"
+                        onClick={() => publishPost(p.PostId)}
+                        disabled={publishing === p.PostId}
+                      >
+                        {publishing === p.PostId ? "Publishing…" : "Approve & Publish"}
+                      </button>
+                    </>
+                  )}
+                  {p.Status === "published" && (
+                    <Link to={`/post/${p.PostId}`} className="btn-outline">View</Link>
+                  )}
+                  <button
+                    type="button"
+                    className="btn-delete"
+                    onClick={() => deletePost(p.PostId)}
+                    disabled={deleting === p.PostId}
+                  >
+                    {deleting === p.PostId ? "Deleting…" : "Delete"}
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="admin-empty">No posts yet.</p>
+          )}
+        </div>
       )}
     </div>
   );

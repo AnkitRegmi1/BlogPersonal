@@ -8,12 +8,15 @@ export default function Header() {
     <header className="site-header">
       <div className="header-inner">
         <Link to="/" className="logo" onClick={() => setMobileMenuOpen(false)}>
-          Blog
+          TecBlog AI
         </Link>
 
         <nav className="desktop-nav">
           <Link to="/" className="nav-link">
             Home
+          </Link>
+          <Link to="/about" className="nav-link">
+            About
           </Link>
         </nav>
 
@@ -41,6 +44,9 @@ export default function Header() {
       <div className={`mobile-menu ${mobileMenuOpen ? "open" : ""}`}>
         <Link to="/" onClick={() => setMobileMenuOpen(false)}>
           Home
+        </Link>
+        <Link to="/about" onClick={() => setMobileMenuOpen(false)}>
+          About
         </Link>
       </div>
     </header>

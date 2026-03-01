@@ -1,6 +1,6 @@
 import { formatISO9075 } from "date-fns";
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import { API_BASE } from "../config";
 
@@ -47,6 +47,7 @@ export default function PostPage() {
 
   return (
     <div className="post-page">
+      <Link to="/" className="post-back">← Back</Link>
       <h1>{title}</h1>
       <time className="post-meta">
         {createdAt ? formatISO9075(new Date(createdAt)) : ""}

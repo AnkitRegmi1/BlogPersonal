@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
-const { getPublishedPosts, getDrafts, getPostById, putPost, updateDraft, publishPost } = require('./lib/dynamodb-posts');
+const { getPublishedPosts, getDrafts, getAllPosts, getPostById, putPost, updateDraft, publishPost, deletePost } = require('./lib/dynamodb-posts');
 const { subscribe } = require('./lib/dynamodb-subscribers');
 const { uploadFromMulterFile } = require('./lib/s3-upload');
 
@@ -68,11 +68,23 @@ app.post('/api/upload-image', requireAdmin, upload.single('image'), async (req, 
 
 app.get('/api/drafts', requireAdmin, async (req, res) => {
   try {
-    const drafts = await getDrafts();
-    res.json(drafts);
+    const all = req.query.all === '1' || req.query.all === 'true';
+    const data = all ? await getAllPosts() : await getDrafts();
+    if (all) console.log('[Admin] getAllPosts returned', data.length, 'items');
+    res.json(data);
   } catch (e) {
     console.error('GET /api/drafts', e);
     res.status(500).json({ error: e.message || 'Failed to fetch drafts' });
+  }
+});
+
+app.delete('/api/posts/:id', requireAdmin, async (req, res) => {
+  try {
+    await deletePost(req.params.id);
+    res.json({ ok: true, deleted: req.params.id });
+  } catch (e) {
+    console.error('DELETE /api/posts/:id', e);
+    res.status(500).json({ error: e.message || 'Failed to delete post' });
   }
 });
 
